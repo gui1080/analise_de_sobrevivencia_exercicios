@@ -1,0 +1,184 @@
+---
+title: "execicios_und_2"
+output: html_document
+date: "2026-04-03"
+---
+
+# Exercícios de R - Análise de Sobrevivência
+
+## Modelos Não Paramétricos
+
+Unidade 2 - Livro "Análise de Sobrevivência Aplicada" Segunda Edicão. ABE - Projeto Fischer
+
+```{r}
+library(survival)
+```
+
+### Exercício 3 Página 52
+
+#### *Letra A - S(t)*
+
+```{r}
+
+tempo <- c(
+  7, 34, 42, 63, 64, 74, 83, 84, 91, 108, 112, 129, 133, 133, 139,
+  140, 140, 146, 149, 154, 157, 160, 160, 165, 173, 176, 185, 218,
+  225, 241, 248, 273, 277, 279, 297, 319, 405, 417, 420, 440, 523,
+  523, 583, 594, 1101, 1116, 1146, 1226, 1349, 1412, 1417
+)
+
+# 0 é censura
+# 1 é evento
+status <- c(
+  1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+  1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1,
+  1, 1, 1, 1, 1, 0, 1, 0, 1, 1, 1, 1, 1,
+  0, 1, 1, 1, 0, 1, 0, 0, 0, 1
+)
+
+```
+
+```{r}
+
+dados <- data.frame(
+  tempo = tempo,
+  status = status
+)
+
+dados
+```
+
+```{r}
+
+ajuste_km <- survfit(Surv(tempo, status) ~ 1, data = dados)
+dev.new(width = 10, height = 7)  # em polegadas
+plot(ajuste_km)
+```
+
+```{r}
+
+summary(ajuste_km)
+```
+
+```{r}
+
+ajuste_na <- survfit(Surv(tempo, status) ~ 1, data = dados, type = "fleming-harrington")
+summary(ajuste_na)
+```
+
+```{r}
+
+plot(ajuste_na)
+```
+
+```{r}
+
+plot(ajuste_km, col = 1, lwd = 2, xlab = "Tempo (dias)", ylab = "S(t)")
+lines(ajuste_na, col = 2, lwd = 2)
+legend("topright",
+       legend = c("Kaplan-Meier", "Nelson-Aalen"),
+       col = c(1, 2), lwd = 2)
+```
+
+Nelson-Aalen ficou um pouco acima do que Kaplan-Meier.
+
+#### Letra B - Tempo médio e mediano
+
+Tempo mediano é o quantil relativo a 0.5
+
+```{r}
+
+quantile(ajuste_km, probs = 0.5)
+```
+
+Tempo médio é a integral sob a funcão S(t).
+
+```{r}
+
+summary_km <- summary(ajuste_km)
+
+t <- summary_km$time
+S <- summary_km$surv
+
+# adiciona tempo inicial
+t_ext <- c(0, t)
+S_ext <- c(1, S)
+
+# cálculo da área (integral)
+media <- sum(diff(t_ext) * S_ext[-length(S_ext)])
+
+media
+```
+
+#### Letra C 
+
+Probabilidade de sobreviver...
+
+```{r}
+
+# 42 dias
+summary(ajuste_km, times = 42)$surv
+
+# 100 dias
+summary(ajuste_km, times = 100)$surv
+
+# 300 dias
+summary(ajuste_km, times = 300)$surv
+
+# 1000
+summary(ajuste_km, times = 1000)$surv
+
+```
+
+#### Letra D
+
+Vida média residual depois de mil dias...\_arrumados
+
+```{r}
+
+install.packages("locfit")
+library(locfit)
+```
+
+```{r}
+
+# mrl é median residual life 
+vmr_vals <- km.mrl(dados$tempo, dados$status)
+
+vmr_vals
+```
+
+```{r}
+
+idx <- which.min(abs(dados$tempo - 1000))
+
+vmr_vals[idx]
+```
+
+#### Letra E - Entendendo as letras anteriores
+
+Letra A - Kaplan Meier me retornou uma curva de sobrevivência levando em conta as censuras. Nos tempos com censura a curva se mantém estável. Ela não converge para zero por isso. Dá quase zero, mas não zero. Análogo para Nelson-Aalen
+
+Letra B - Já explicado por alto o que é cada valor no decorrer da questão.
+
+Letra C - A chance de cada indivídiuo sobreviver x dias é de y (pontos na curva S(t).
+
+Letra D - Quem sobreviveu mil dias deve sobreviver em média mais uns 210.
+
+#### Letra F
+
+Obter t tal que S(t) é...
+
+```{r}
+
+# 0.8
+quantile(ajuste_km, probs = 0.8)
+
+# 0.3
+quantile(ajuste_km, probs = 0.3)
+
+# 0.1
+quantile(ajuste_km, probs = 0.1)
+```
+
+594, 140 e 83 respectivamente.
