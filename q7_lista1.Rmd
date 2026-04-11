@@ -13,8 +13,10 @@ library(survival)
 #library(survminer)
 ```
 
+# Questão 7
+
 ```{r}
-# Questão 3
+
 # Tempo em dias desde exposição a cancerígeno até mortalidade por câncer em ratos
 # Os ratos foram expostos a dois diferentes pré-tratamentos
 
@@ -27,9 +29,9 @@ status_grupo_1 <- c(1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0)
 ```
 
 ```{r}
-tempo_grupo_2 <- c(142, 156, 163, 198, 205, 232, 232, 233, 233, 233, 233, 233, 239, 240, 261, 280, 280, 296, 296, 323, 204, 344)
+tempo_grupo_2 <- c(142, 156, 163, 198, 205, 232, 232, 233, 233, 233, 233, 239, 240, 261, 280, 280, 296, 296, 323, 204, 344)
 
-status_grupo_2 <- c(1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0)
+status_grupo_2 <- c(1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0)
 ```
 
 ```{r}
@@ -46,6 +48,8 @@ dados_grupo_1 <- data.frame(
 dados_grupo_1
 ```
 
+## Letra A
+
 ![](791ea947-9d2f-4b5e-a283-4b106e037361.png)
 
 ```{r}
@@ -59,6 +63,11 @@ dados_grupo_1
 
 ajuste_km_grupo_2_log_log <- survfit(Surv(tempo, status) ~ 1, data = dados_grupo_2, conf.type = "log-log" , conf.int  = 0.95)
 summary(ajuste_km_grupo_2_log_log)
+```
+
+```{r}
+
+(1-(1/21))*(1-(1/20))*(1-(1/19))*(1-(1/18))*(1-(1/16))*(1-(2/15))*(1-(4/13))
 ```
 
 ```{r}
@@ -141,10 +150,22 @@ polygon(
 abline(v = z, col = "red", lwd = 2, lty = 2)
 ```
 
+```{r}
+z <- qnorm(0.95)
+print(z)
+```
+
 qnorm(0.95) significa pegar os 95% dos dados à esquerda na normal, os "95% mais usuais"
 
+## Letra B
+
 ```{r}
-# Letra B
+
+ajuste_km_grupo_1_plain <- survfit(Surv(tempo, status) ~ 1, data = dados_grupo_1, conf.type = "plain" , conf.int  = 0.95)
+summary(ajuste_km_grupo_1_plain)
+```
+
+```{r}
 # Obter intervalo de confiança
 # Risco acumulado - Estimador de Nelson-Aalen - Hna (190) do grupo 1 e 2
 # método de greenwod e transformação log-log
@@ -255,6 +276,8 @@ df_na_grupo_2_log_log <- data.frame(
 )
 print(df_na_grupo_2_log_log)
 ```
+
+## Letra C
 
 ```{r}
 ## Definir limites comuns (opcional, mas recomendado)

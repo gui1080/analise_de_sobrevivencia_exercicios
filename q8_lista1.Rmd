@@ -76,6 +76,25 @@ print(Igual)
 ```
 
 ```{r}
+
+a <- sobrevivencia_letraA(1 + 2)
+b <- sobrevivencia_letraA(1) * sobrevivencia_letraA(2)
+print(a)
+print(b)
+print("----------------------------")
+a <- sobrevivencia_letraA(1 + 0)
+b <- sobrevivencia_letraA(1) * sobrevivencia_letraA(0)
+print(a)
+print(b)
+print("----------------------------")
+a <- sobrevivencia_letraA(1.5 + 0.5)
+b <- sobrevivencia_letraA(1.5) * sobrevivencia_letraA(0.5)
+print(a)
+print(b)
+print("----------------------------")
+```
+
+```{r}
 plot(
   letra_a_parte_a, letra_a_parte_b 
 )
@@ -83,6 +102,8 @@ abline(a = 0, b = 1, col = "red", lwd = 2)
 ```
 
 ## Resposta Letra A - NBU
+
+------------------------------------------------------------------------
 
 ```{r}
 # Letra B 
@@ -106,7 +127,7 @@ letra_b_parte_b <- numeric(100)
 sobrevivencia_letraB <- function(x) {
   
     if((x >= 0) || (x <= 2)){
-        valor = 1 - (x*x/4)
+        valor = (x*x/4)
     }
     if(x>2){
         valor = 0
@@ -146,6 +167,27 @@ print(Igual)
 ```
 
 ```{r}
+
+a <- sobrevivencia_letraB(1 + 0.5)
+b <- sobrevivencia_letraB(1) * sobrevivencia_letraB(0.5)
+print(a)
+print(b)
+print("----------------------------")
+
+a <- sobrevivencia_letraB(1 + 1)
+b <- sobrevivencia_letraB(1) * sobrevivencia_letraB(1)
+print(a)
+print(b)
+print("----------------------------")
+
+a <- sobrevivencia_letraB(0.5 + 0.5)
+b <- sobrevivencia_letraB(0.5) * sobrevivencia_letraB(0.5)
+print(a)
+print(b)
+print("----------------------------")
+```
+
+```{r}
 plot(
   letra_b_parte_a, letra_b_parte_b 
 )
@@ -176,7 +218,7 @@ letra_c_parte_b <- numeric(100)
 sobrevivencia_letraC <- function(x) {
   
     if((x >= 0) || (x <= 2)){
-        valor = 1 - (x - (x*x/4))
+        valor = (x - (x*x/4))
     }
     if(x>2){
         valor = 0
@@ -213,6 +255,15 @@ for (i in 1:100) {
 print(NBU)
 print(NWU)
 print(Igual)
+```
+
+```{r}
+
+a <- sobrevivencia_letraC(1 + 0.5)
+b <- sobrevivencia_letraC(1) * sobrevivencia_letraC(0.5)
+print(a)
+print(b)
+print("----------------------------")
 ```
 
 ```{r}
