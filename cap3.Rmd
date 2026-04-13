@@ -1,0 +1,258 @@
+---
+title: "cap3"
+output: html_document
+---
+
+```{r}
+
+library(survival)
+```
+
+# Capítulo 2 - Exercício 4
+
+```{r}
+
+tempo_grau_baixo <- c(28, 89, 175, 195, 309, 377, 393, 421, 447, 462, 709, 744, 770, 1106, 1206)
+
+status_grau_baixo <- c(1, 1, 1, 1, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0)
+
+tempo_grau_alto <- c(34, 88, 137, 199, 280, 291, 299, 300, 309, 351, 358, 369, 369, 370, 375, 382, 392, 429, 451, 1119)
+
+status_grau_alto <- c(1, 1, 1, 1, 1, 1, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1, 0)
+```
+
+```{r}
+
+dados_grau_baixo <- data.frame(
+  tempo = tempo_grau_baixo,
+  status = status_grau_baixo
+)
+
+dados_grau_alto <- data.frame(
+  tempo = tempo_grau_alto,
+  status = status_grau_alto
+)
+```
+
+## Letra A - Curvas de Kaplan Meier e Nelson-Aalen
+
+### Kaplan Meier
+
+```{r}
+
+ajuste_km_grau_baixo <- survfit(Surv(tempo, status) ~ 1, data = dados_grau_baixo, conf.type = "log-log" , conf.int  = 0.95)
+
+summary(ajuste_km_grau_baixo)
+```
+
+```{r}
+
+ajuste_km_grau_alto <- survfit(Surv(tempo, status) ~ 1, data = dados_grau_alto, conf.type = "log-log" , conf.int  = 0.95)
+
+summary(ajuste_km_grau_alto)
+```
+
+```{r}
+
+plot(
+  ajuste_km_grau_alto,
+  conf.int = FALSE,
+  col = "#D55E00",
+  lwd = 2,
+  mark.time = TRUE,
+  xlab = "Tempo",
+  ylab = "Probabilidade de sobrevivencia",
+  main = "Curvas de Kaplan-Meier por grau"
+)
+
+lines(ajuste_km_grau_baixo, conf.int = FALSE, col = "#0072B2", lwd = 2, mark.time = TRUE)
+lines(ajuste_km_grau_alto, conf.int = TRUE, col = adjustcolor("#D55E00", alpha.f = 0.45), lty = 3)
+lines(ajuste_km_grau_baixo, conf.int = TRUE, col = adjustcolor("#0072B2", alpha.f = 0.45), lty = 3)
+legend("bottomleft", legend = c("Grau alto", "Grau baixo"), col = c("#D55E00", "#0072B2"), lwd = 2, bty = "n")
+
+```
+
+## Nelson-Aalen
+
+```{r}
+
+ajuste_na_grau_baixo <- survfit(Surv(tempo, status) ~ 1, data = dados_grau_baixo, type = "fleming-harrington", conf.type = "log-log" , conf.int  = 0.95)
+
+summary(ajuste_na_grau_baixo)
+```
+
+```{r}
+
+ajuste_na_grau_alto <- survfit(Surv(tempo, status) ~ 1, data = dados_grau_alto, type = "fleming-harrington", conf.type = "log-log" , conf.int  = 0.95)
+
+summary(ajuste_na_grau_alto)
+```
+
+```{r}
+
+plot(
+  ajuste_na_grau_alto,
+  conf.int = FALSE,
+  col = "#D55E00",
+  lwd = 2,
+  mark.time = TRUE,
+  xlab = "Tempo",
+  ylab = "Probabilidade de sobrevivencia",
+  main = "Curvas de Nelson Aalen por grau"
+)
+
+lines(ajuste_na_grau_baixo, conf.int = FALSE, col = "#0072B2", lwd = 2, mark.time = TRUE)
+lines(ajuste_na_grau_alto, conf.int = TRUE, col = adjustcolor("#D55E00", alpha.f = 0.45), lty = 3)
+lines(ajuste_na_grau_baixo, conf.int = TRUE, col = adjustcolor("#0072B2", alpha.f = 0.45), lty = 3)
+legend("bottomleft", legend = c("Grau alto", "Grau baixo"), col = c("#D55E00", "#0072B2"), lwd = 2, bty = "n")
+```
+
+## Letra B
+
+Fazer o teste -\> Ho = S1(t) = S2(t)
+
+alpha = 0.05
+
+p \< alpha ⇒ rejeitar H0
+
+p \> alpha ⇒ não rejeito H0
+
+```{r}
+
+time <- c(28, 89, 175, 195, 309, 377, 393, 421, 447, 462, 709, 744, 770, 1106, 1206, 34, 88, 137, 199, 280, 291, 299, 300, 309, 351, 358, 369, 369, 370, 375, 382, 392, 429, 451, 1119)
+status <- c(1, 1, 1, 1, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1, 0)
+grupos <- c(1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2)
+```
+
+```{r}
+
+surv_object <- Surv(time, status)
+```
+
+```{r}
+
+logrank_test <- survdiff(surv_object ~ grupos, rho = 0)
+wilcoxon_test <- survdiff(surv_object ~ grupos, rho = 1)
+```
+
+```{r}
+
+logrank_test
+```
+
+```{r}
+
+wilcoxon_test
+```
+
+# Capítulo 2 - Exercício 6
+
+alpha = 0.05
+
+```{r}
+
+time <- c(
+  # Grupo A
+  31, 40, 43, 44, 46, 46, 47, 48, 48, 49,
+  50, 50, 60, 60, 60, 60, 60, 60, 60, 60,
+  
+  # Grupo B
+  48, 48, 49, 49, 49, 49, 50, 50, 50, 50,
+  53, 53, 54, 54, 54, 55, 55, 55, 55, 55
+)
+
+status <- c(
+  # Grupo A
+  1,1,1,1,1,1,1,1,1,1,
+  1,1,1,1,1,1,0,0,0,0,
+  
+  # Grupo B
+  1,1,1,1,1,1,1,1,1,1,
+  1,1,1,1,1,1,0,0,0,0
+)
+
+group <- c(
+  rep(1, 20),
+  rep(2, 20)
+)
+```
+
+```{r}
+
+surv_object <- Surv(time, status)
+logrank_test <- survdiff(surv_object ~ group, rho = 0)
+wilcoxon_test <- survdiff(surv_object ~ group, rho = 1)
+```
+
+```{r}
+
+logrank_test
+```
+
+```{r}
+
+wilcoxon_test
+```
+
+Os p values deram maior que alfa 0.05, logo NÃO rejeito a Hipotese nula de que os tempos de sobrevivencia são os mesmos.
+
+```{r}
+
+dados <- data.frame(
+  time = time,
+  status = status,
+  group = factor(group, labels = c("Grupo A", "Grupo B"))
+)
+
+ajuste_km <- survfit(Surv(time, status) ~ group, data = dados)
+
+summary(ajuste_km)
+```
+
+```{r}
+
+plot(
+  ajuste_km,
+  col = c("blue", "red"),
+  lwd = 2,
+  xlab = "Tempo",
+  ylab = "Probabilidade de sobrevivencia",
+  main = "Curvas de Kaplan-Meier por grupo",
+  mark.time = TRUE
+)
+
+legend(
+  "bottomleft",
+  legend = levels(dados$group),
+  col = c("blue", "red"),
+  lwd = 2,
+  bty = "n"
+)
+```
+
+```{r}
+
+# tempo médio e percentil 10, mas agora é tudo a mesma amostra 
+
+dados <- data.frame(
+  time = time,
+  status = status
+)
+
+ajuste_km <- survfit(Surv(time, status) ~ 1, data = dados)
+```
+
+```{r}
+
+quantile(ajuste_km, probs = 0.10)
+
+```
+
+```{r}
+
+summary(ajuste_km, rmean = "common")$table
+```
+
+tempo médio - 51.925000
+
+quantil 10 - 45
