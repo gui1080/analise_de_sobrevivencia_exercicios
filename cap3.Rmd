@@ -8,251 +8,169 @@ output: html_document
 library(survival)
 ```
 
-# Capítulo 2 - Exercício 4
+# Capítulo 3 
+
+## Exemplo da Página 83
 
 ```{r}
 
-tempo_grau_baixo <- c(28, 89, 175, 195, 309, 377, 393, 421, 447, 462, 709, 744, 770, 1106, 1206)
+library(survival)
 
-status_grau_baixo <- c(1, 1, 1, 1, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0)
+tempos <- c(3,5,6,7,8,9,10,10,12,15,15,18,19,20,22,25,28,30,40,45)
 
-tempo_grau_alto <- c(34, 88, 137, 199, 280, 291, 299, 300, 309, 351, 358, 369, 369, 370, 375, 382, 392, 429, 451, 1119)
-
-status_grau_alto <- c(1, 1, 1, 1, 1, 1, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1, 0)
+cens <- c(1,1,1,1,1,1,1,0,1,1,0,1,1,1,1,1,1,1,1,0)
 ```
 
 ```{r}
 
-dados_grau_baixo <- data.frame(
-  tempo = tempo_grau_baixo,
-  status = status_grau_baixo
-)
+# Ajustando na exponencial
+ajust1 <- survreg(Surv(tempos, cens) ~ 1, dist='exponential') 
+ajust1
 
-dados_grau_alto <- data.frame(
-  tempo = tempo_grau_alto,
-  status = status_grau_alto
-)
-```
+alpha <- exp(ajust1$coefficients[1])
+alpha
 
-## Letra A - Curvas de Kaplan Meier e Nelson-Aalen
-
-### Kaplan Meier
-
-```{r}
-
-ajuste_km_grau_baixo <- survfit(Surv(tempo, status) ~ 1, data = dados_grau_baixo, conf.type = "log-log" , conf.int  = 0.95)
-
-summary(ajuste_km_grau_baixo)
 ```
 
 ```{r}
 
-ajuste_km_grau_alto <- survfit(Surv(tempo, status) ~ 1, data = dados_grau_alto, conf.type = "log-log" , conf.int  = 0.95)
+# Ajustando na weibull
 
-summary(ajuste_km_grau_alto)
+ajust2 <- survreg(Surv(tempos, cens) ~ 1, dist='weibull')
+ajust2
+
+alpha <- exp(ajust2$coefficients[1])
+gama <- 1/ajust2$scale
+cbind(gama, alpha)
+
 ```
 
 ```{r}
 
-plot(
-  ajuste_km_grau_alto,
-  conf.int = FALSE,
-  col = "#D55E00",
-  lwd = 2,
-  mark.time = TRUE,
-  xlab = "Tempo",
-  ylab = "Probabilidade de sobrevivencia",
-  main = "Curvas de Kaplan-Meier por grau"
-)
+# Ajustando na log normal
 
-lines(ajuste_km_grau_baixo, conf.int = FALSE, col = "#0072B2", lwd = 2, mark.time = TRUE)
-lines(ajuste_km_grau_alto, conf.int = TRUE, col = adjustcolor("#D55E00", alpha.f = 0.45), lty = 3)
-lines(ajuste_km_grau_baixo, conf.int = TRUE, col = adjustcolor("#0072B2", alpha.f = 0.45), lty = 3)
-legend("bottomleft", legend = c("Grau alto", "Grau baixo"), col = c("#D55E00", "#0072B2"), lwd = 2, bty = "n")
+ajust3 <- survreg(Surv(tempos, cens) ~ 1, dist='lognorm')
 
-```
-
-## Nelson-Aalen
-
-```{r}
-
-ajuste_na_grau_baixo <- survfit(Surv(tempo, status) ~ 1, data = dados_grau_baixo, type = "fleming-harrington", conf.type = "log-log" , conf.int  = 0.95)
-
-summary(ajuste_na_grau_baixo)
+ajust3
 ```
 
 ```{r}
 
-ajuste_na_grau_alto <- survfit(Surv(tempo, status) ~ 1, data = dados_grau_alto, type = "fleming-harrington", conf.type = "log-log" , conf.int  = 0.95)
+ekm <- survfit(Surv(tempos, cens) ~ 1) 
+time <- ekm$time 
+st <- ekm$surv
 
-summary(ajuste_na_grau_alto)
+ste <- exp(-time/20.41)
+
+stw <- exp(-(time/21.34)^1.54)
+
+stln <- pnorm((-log(time) + 2.72)/0.76)
+
+cbind(time, st, ste, stw, stln)
 ```
 
 ```{r}
 
-plot(
-  ajuste_na_grau_alto,
-  conf.int = FALSE,
-  col = "#D55E00",
-  lwd = 2,
-  mark.time = TRUE,
-  xlab = "Tempo",
-  ylab = "Probabilidade de sobrevivencia",
-  main = "Curvas de Nelson Aalen por grau"
-)
+par(mfrow=c(1,3)); plot(st, ste, pch=16, xlab="S(t) Kaplan-Meier",
+ylab="S(t) exponencial", ylim=c(0,1), xlim=c(0,1)); abline(0,1)
 
-lines(ajuste_na_grau_baixo, conf.int = FALSE, col = "#0072B2", lwd = 2, mark.time = TRUE)
-lines(ajuste_na_grau_alto, conf.int = TRUE, col = adjustcolor("#D55E00", alpha.f = 0.45), lty = 3)
-lines(ajuste_na_grau_baixo, conf.int = TRUE, col = adjustcolor("#0072B2", alpha.f = 0.45), lty = 3)
-legend("bottomleft", legend = c("Grau alto", "Grau baixo"), col = c("#D55E00", "#0072B2"), lwd = 2, bty = "n")
+plot(st, stw, pch=16, ylim=c(0,1), xlim=c(0,1), xlab="S(t) Kaplan-Meier",
+ylab="S(t) Weibull"); abline(0,1)
+
+plot(st, stln, pch=16, ylim=c(0,1), xlim=c(0,1), xlab="S(t) Kaplan-Meier",
+ylab="S(t) log-normal"); abline(0,1)
 ```
 
-## Letra B
+## Exercício 1
 
-Fazer o teste -\> Ho = S1(t) = S2(t)
+S(t) segue uma T \~ Weibull (alpha = 100 e gama = 2)
 
-alpha = 0.05
-
-p \< alpha ⇒ rejeitar H0
-
-p \> alpha ⇒ não rejeito H0
+t em dias
 
 ```{r}
 
-time <- c(28, 89, 175, 195, 309, 377, 393, 421, 447, 462, 709, 744, 770, 1106, 1206, 34, 88, 137, 199, 280, 291, 299, 300, 309, 351, 358, 369, 369, 370, 375, 382, 392, 429, 451, 1119)
-status <- c(1, 1, 1, 1, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1, 0)
-grupos <- c(1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2)
-```
 
-```{r}
+escala <- 100
+forma <- 2
 
-surv_object <- Surv(time, status)
-```
-
-```{r}
-
-logrank_test <- survdiff(surv_object ~ grupos, rho = 0)
-wilcoxon_test <- survdiff(surv_object ~ grupos, rho = 1)
-```
-
-```{r}
-
-logrank_test
-```
-
-```{r}
-
-wilcoxon_test
-```
-
-# Capítulo 2 - Exercício 6
-
-alpha = 0.05
-
-```{r}
-
-time <- c(
-  # Grupo A
-  31, 40, 43, 44, 46, 46, 47, 48, 48, 49,
-  50, 50, 60, 60, 60, 60, 60, 60, 60, 60,
+S_t <- function(t, escala = 100, forma = 2){
   
-  # Grupo B
-  48, 48, 49, 49, 49, 49, 50, 50, 50, 50,
-  53, 53, 54, 54, 54, 55, 55, 55, 55, 55
-)
-
-status <- c(
-  # Grupo A
-  1,1,1,1,1,1,1,1,1,1,
-  1,1,1,1,1,1,0,0,0,0,
+  resultado <- exp( -(t/escala)^forma)
   
-  # Grupo B
-  1,1,1,1,1,1,1,1,1,1,
-  1,1,1,1,1,1,0,0,0,0
-)
-
-group <- c(
-  rep(1, 20),
-  rep(2, 20)
-)
-```
-
-```{r}
-
-surv_object <- Surv(time, status)
-logrank_test <- survdiff(surv_object ~ group, rho = 0)
-wilcoxon_test <- survdiff(surv_object ~ group, rho = 1)
-```
-
-```{r}
-
-logrank_test
-```
-
-```{r}
-
-wilcoxon_test
-```
-
-Os p values deram maior que alfa 0.05, logo NÃO rejeito a Hipotese nula de que os tempos de sobrevivencia são os mesmos.
-
-```{r}
-
-dados <- data.frame(
-  time = time,
-  status = status,
-  group = factor(group, labels = c("Grupo A", "Grupo B"))
-)
-
-ajuste_km <- survfit(Surv(time, status) ~ group, data = dados)
-
-summary(ajuste_km)
-```
-
-```{r}
-
-plot(
-  ajuste_km,
-  col = c("blue", "red"),
-  lwd = 2,
-  xlab = "Tempo",
-  ylab = "Probabilidade de sobrevivencia",
-  main = "Curvas de Kaplan-Meier por grupo",
-  mark.time = TRUE
-)
-
-legend(
-  "bottomleft",
-  legend = levels(dados$group),
-  col = c("blue", "red"),
-  lwd = 2,
-  bty = "n"
-)
-```
-
-```{r}
-
-# tempo médio e percentil 10, mas agora é tudo a mesma amostra 
-
-dados <- data.frame(
-  time = time,
-  status = status
-)
-
-ajuste_km <- survfit(Surv(time, status) ~ 1, data = dados)
-```
-
-```{r}
-
-quantile(ajuste_km, probs = 0.10)
+}
 
 ```
 
 ```{r}
 
-summary(ajuste_km, rmean = "common")$table
+plot(S_t, 0, 150)
 ```
 
-tempo médio - 51.925000
+### a - Prob de sobreviver 30 e 45 dias
 
-quantil 10 - 45
+```{r}
+
+print(S_t(30, escala, forma))
+print(S_t(45, escala, forma))
+```
+
+### b - tempo médio
+
+É o E[T] calculado como a área em baixo da curva de S(t).
+
+```{r}
+
+# Nesse caso, vou partir direto pra definição da E[T] que normalmente seria feita integrando de 0 a infinito a S(t). 
+
+media <- escala * gamma(1+(1/forma))
+print(media)
+```
+
+A média é cerca de 88 dias e meio.
+
+```{r}
+
+gamma(0.5)*50
+```
+
+### c - tempo mediano
+
+É o tempo no qual a probabilidade de sobrevivência é de 0,5 (50%)
+
+```{r}
+
+print(S_t(83.255, escala, forma))
+```
+
+O tempo mediano é cerca de 83 dias.
+
+### d- taxa de falha nos 30, 45 e 60 dias
+
+```{r}
+
+# novamente eu vou direto pra definição da taxa de falha
+# ela é normalmente achada fazendo - d/dt log(S(t))
+# ou partindo da relação h(t) = f(t)/S(t)
+
+h_t <- function(t, escala = 100, forma = 2){
+  
+  resultado <- (( forma / (escala ^ forma) ) * (t ^ (forma-1) ))
+  
+}
+```
+
+```{r}
+
+plot(h_t, 0, 150)
+```
+
+```{r}
+
+print(h_t(30, escala, forma))
+print(h_t(45, escala, forma))
+print(h_t(60, escala, forma))
+```
+
+Taxa de falha é crescente pois o parametro de forma é maior que 1. Parâmetro de forma 1 seria o caso particular de risco constante remetendo a exponencial.
+
+Mais tempo que passa maior o risco de evento.
