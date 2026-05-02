@@ -1,0 +1,141 @@
+---
+title: "lista_2_ex_5"
+output: html_document
+---
+
+```{r}
+
+library(coin)
+library(survival)
+```
+
+```{r}
+
+dados <- data.frame(
+  grupo = c(
+    rep("A", 6),
+    rep("B", 5),
+    rep("C", 6),
+    rep("D", 5),
+    rep("Controle", 6)
+  ),
+  tempo = c(
+    1, 4, 5, 6, 7, 7,
+    3, 5, 5, 5, 6,
+    1, 3, 4, 7, 7, 7,
+    3, 5, 7, 7, 7,
+    3, 5, 5, 7, 7, 7
+  ),
+  status = c(
+    1, 1, 1, 1, 0, 0,   # A
+    1, 1, 0, 0, 1,      # B
+    1, 1, 0, 1, 1, 0,   # C
+    1, 0, 1, 0, 0,      # D
+    1, 1, 1, 0, 0, 0    # Controle
+  )
+)
+
+dados$grupo <- factor(dados$grupo)
+
+dados
+
+```
+
+```{r}
+
+# log rank
+log_rank <- survdiff(Surv(tempo, status) ~ grupo, data = dados)
+
+# wilcoxon
+teste_wilcoxon <- logrank_test(
+  Surv(tempo, status) ~ grupo,
+  data = dados,
+  type = "Gehan-Breslow"
+)
+
+# Peto-Peto
+peto <- survdiff(Surv(tempo, status) ~ grupo, data = dados, rho = 1)
+
+# Fleming-Harrington com gamma = 0 e rho = 2
+fh <- survdiff(Surv(tempo, status) ~ grupo, data = dados, rho = 2)
+```
+
+H0 é as curvas serem todas iguais
+
+H1 é as curvas serem diferentes
+
+```{r}
+
+log_rank
+```
+
+```{r}
+
+teste_wilcoxon
+```
+
+```{r}
+
+peto
+```
+
+```{r}
+
+fh
+```
+
+```{r}
+
+print(1 - pchisq(log_rank$chisq, df = length(log_rank$n) - 1))
+print(1 - pchisq(peto$chisq, df = length(peto$n) - 1))
+print(1 - pchisq(fh$chisq, df = length(fh$n) - 1))
+```
+
+Opa, tá maior que 0.5 ou seja, não está sendo possível aceitar H0! Tem diferença entre as curvas. Agora, entre quais?
+
+Vou fazer log-rank 2 a 2.
+
+```{r}
+
+grupos <- levels(dados$grupo)
+pares <- combn(grupos, 2, simplify = FALSE)
+
+resultados <- lapply(pares, function(par) {
+  sub <- subset(dados, grupo %in% par)
+  sub$grupo <- droplevels(sub$grupo)
+  
+  teste <- survdiff(Surv(tempo, status) ~ grupo, data = sub)
+  pvalor <- 1 - pchisq(teste$chisq, df = 1)
+  
+  data.frame(
+    grupo1 = par[1],
+    grupo2 = par[2],
+    chisq = teste$chisq,
+    pvalor = pvalor
+  )
+})
+```
+
+```{r}
+
+resultados <- do.call(rbind, resultados)
+resultados
+```
+
+Muito pequeno, rejeito H0.
+
+Muito alto, não rejeito H0.
+
+Grupos que rejeito H0 (as curvas não são iguais):
+
+-   A e D
+
+-   B e C
+
+-   B e D
+
+-   C e Controle
+
+-   C e D
+
+Para o resto das comparações, não existe evidência estatística para descartar a possibilidade das curvas serem iguais.
