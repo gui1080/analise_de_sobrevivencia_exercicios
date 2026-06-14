@@ -1,0 +1,383 @@
+---
+title: "Distribuições Paramétricas"
+output: html_document
+---
+
+```{r setup, message=FALSE, warning=FALSE}
+library(survival)
+```
+
+# Distribuições paramétricas
+
+## Base de dados
+
+```{r dados}
+# TIME: Survival time in days
+# CENS: Censoring indicator (0 = censored, 1 = uncensored)
+# TREAT: Treatment (1 = single, 2 = combined)
+# AGE: Age of patient in years
+# RDISEASE: Extent of residual disease (1 = incomplete, 2 = complete)
+# PERF: Performance status (1 = good, 2 = poor)
+quimioterapy <- read.table("Quimioterapy.txt", header = TRUE)
+
+head(quimioterapy)
+```
+
+## Exponential distribution
+
+### Usando o pacote R
+
+```{r exponencial-survreg}
+reg.exp <- survreg(
+  Surv(TIME, CENS) ~ factor(TREAT),
+  data = quimioterapy,
+  dist = "exponential"
+)
+
+summary(reg.exp)
+```
+
+```{r}
+
+RegExpComp <- survreg(
+  Surv(TIME, CENS) ~ factor(TREAT) + AGE + RDISEASE + PERF,
+  data = quimioterapy,
+  dist = "exponential"
+)
+
+summary(RegExpComp)
+```
+
+Ou seja
+
+S_TREAT1(t = 1) = S_TREAT2(t = 1.86)
+
+Mas o pvalue é alto então esse resultado n é sestatísticamente significativo.
+
+### Função de log-verossimilhança
+
+```{r exponencial-loglik}
+logLik.expon <- function(data, betas) {
+  dj <- data$CENS
+  tj <- data$TIME
+  X <- as.matrix(data.frame(x0 = rep(1, nrow(data)), data[, 4:7]))
+  betas <- as.vector(betas)
+
+  (-1) * sum(-dj * X %*% betas - tj * exp(-X %*% betas))
+}
+```
+
+### Estimativas principais
+
+```{r exponencial-optim}
+res.exp_log_lik <- optim(
+  rep(0, 5),
+  fn = logLik.expon,
+  data = quimioterapy,
+  method = "BFGS",
+  hessian = TRUE
+)
+
+# Maximum Likelihood Estimates
+betas <- round(
+  data.frame(
+    b0 = res.exp_log_lik$par[1],
+    b1 = res.exp_log_lik$par[2],
+    b2 = res.exp_log_lik$par[3],
+    b3 = res.exp_log_lik$par[4],
+    b4 = res.exp_log_lik$par[5]
+  ),
+  4
+)
+
+betas
+```
+
+```{r}
+
+# esses betas entram nessa linearização aqui
+# eta <- b0 + b1*TREAT + b2*AGE + b3*RDISEASE + b4*PERF
+# S(t | x) = exp(-t * exp(-eta))
+
+S_exp <- function(t, TREAT, AGE, RDISEASE, PERF) {
+  eta <- 12.7527 +
+    0.6252*TREAT -
+    0.0867*AGE -
+    0.7754*RDISEASE -
+    0.2781*PERF
+
+  exp(-t * exp(-eta))
+}
+```
+
+```{r}
+
+tempos <- seq(0, max(quimioterapy$TIME), length.out = 300)
+
+plot(
+  tempos,
+  S_exp(tempos, TREAT = 1, AGE = 60, RDISEASE = 2, PERF = 1),
+  type = "l",
+  lwd = 2,
+  ylim = c(0, 1),
+  xlab = "Tempo",
+  ylab = "S(t)"
+)
+```
+
+### Newton-Raphson
+
+```{r exponencial-newton-raphson}
+
+score.exp <- function(data, betas) {
+  dj <- data$CENS
+  tj <- data$TIME
+  X <- as.matrix(data.frame(x0 = rep(1, nrow(data)), data[, 4:7]))
+  betas <- as.vector(betas)
+  score <- double(ncol(X))
+
+  for (r in seq_len(ncol(X))) {
+    score[r] <- sum(X[, r] * (tj * exp(-X %*% betas) - dj))
+  }
+
+  score
+}
+
+Info.exp <- function(data, betas) {
+  tj <- data$TIME
+  X <- as.matrix(data.frame(x0 = rep(1, nrow(data)), data[, 4:7]))
+  betas <- as.vector(betas)
+  Info.mat <- matrix(NA, ncol = ncol(X), nrow = ncol(X))
+
+  for (r in seq_len(ncol(X))) {
+    for (s in seq_len(ncol(X))) {
+      Info.mat[r, s] <- sum(X[, r] * X[, s] * tj * exp(-X %*% betas))
+    }
+  }
+
+  Info.mat
+}
+
+fs.expReg <- function(data, betas, max.iter = 15, eps = 1e-08) {
+  tol.vec <- double(max.iter + 1)
+  betas.vec <- matrix(NA, nrow = max.iter + 1, ncol = length(betas))
+
+  betas.vec[1, ] <- betas.ant <- betas
+  contador <- 1
+  tol.vec[1] <- 1
+
+  while (TRUE) {
+    v <- solve(Info.exp(data, betas.ant), score.exp(data, betas.ant))
+
+    # Iterative step (FS Algorithm)
+    betas.atual <- betas.ant + v
+
+    # Computing the tolerance level
+    tol <- sum(abs(betas.atual - betas.ant))
+    contador <- contador + 1
+
+    # Updating the main results
+    betas.ant <- betas.atual
+    betas.vec[contador, ] <- betas.ant
+    tol.vec[contador] <- tol
+
+    cat("Wait: the FS algorithm is running", "\r")
+
+    if ((eps > tol) || (contador > max.iter)) {
+      break
+    }
+  }
+
+  Results <- matrix(NA, nrow = contador, ncol = 6)
+  colnames(Results) <- c("b0", "b1", "b2", "b3", "b4", "Tolerance")
+  Results[seq_len(contador), 1:5] <- betas.vec[seq_len(contador), ]
+  Results[seq_len(contador), 6] <- tol.vec[seq_len(contador)]
+
+  Cov.Mat <- solve(Info.exp(data, betas.atual))
+  se.betas <- sqrt(diag(Cov.Mat))
+
+  list(
+    betas.atual = betas.atual,
+    Cov.Mat = Cov.Mat,
+    se.betas = se.betas,
+    Results = Results
+  )
+}
+
+res.expFS <- fs.expReg(quimioterapy, rep(0, 5))
+```
+
+```{r}
+
+# Maximum likelihood estimates
+round(res.expFS$betas.atual, 4)
+```
+
+```{r}
+
+# Standard error
+round(sqrt(diag(res.expFS$Cov.Mat)), 4)
+```
+
+## Modelo de regressão Weibull
+
+### Usando o pacote R
+
+```{r weibull-survreg}
+reg.weib <- survreg(
+  Surv(TIME, CENS) ~ factor(TREAT) + AGE + factor(RDISEASE) + factor(PERF),
+  data = quimioterapy,
+  dist = "weibull"
+)
+
+summary(reg.weib)
+```
+
+### Função de log-verossimilhança
+
+```{r weibull-loglik}
+logLik.Weib <- function(data, param) {
+  dj <- data$CENS
+  tj <- data$TIME
+  alpha <- param[6]
+  betas <- as.matrix(param[1:5])
+  X <- as.matrix(cbind(x0 = 1, data[, 4:7]))
+  linear_pred <- X %*% betas
+
+  if (alpha <= 0) {
+    return(Inf)
+  }
+
+  (-1) * sum(
+    dj * log(alpha * tj^(alpha - 1) * exp(-alpha * linear_pred)) -
+      tj^alpha * exp(-alpha * linear_pred)
+  )
+}
+
+res.weib_loglike <- optim(
+  c(rep(0, 5), 0.1),
+  fn = logLik.Weib,
+  data = quimioterapy,
+  method = "BFGS",
+  hessian = TRUE
+)
+
+# Maximum Likelihood Estimates
+betas_weib <- round(
+  data.frame(
+    b0 = res.weib_loglike$par[1],
+    b1 = res.weib_loglike$par[2],
+    b2 = res.weib_loglike$par[3],
+    b3 = res.weib_loglike$par[4],
+    b4 = res.weib_loglike$par[5]
+  ),
+  4
+)
+
+betas_weib
+```
+
+```{r}
+
+sqrt(diag(solve(res.weib$hessian)))
+```
+
+## Modelos de tempo de falha acelerado
+
+### Caso I: distribuição exponencial
+
+```{r aft-exponencial}
+tj <- seq(0, 5, length.out = 1000)
+
+exp.mu0 <- 1
+exp.mu1 <- 0.2
+exp.mu2 <- 0.5
+exp.mu3 <- 2
+exp.mu4 <- 5
+
+S0 <- function(z) {
+  exp(-z)
+}
+
+surv_af <- function(t, mu) {
+  S0(t / mu)
+}
+
+plot(
+  tj,
+  surv_af(tj, exp.mu0),
+  type = "s",
+  col = 1,
+  lwd = 2,
+  xlab = "Tempos",
+  ylab = "Sobrevivência"
+)
+
+lines(tj, surv_af(tj, exp.mu1), lwd = 2, col = 2)
+lines(tj, surv_af(tj, exp.mu2), lwd = 2, col = 3)
+lines(tj, surv_af(tj, exp.mu3), lwd = 2, col = 4)
+lines(tj, surv_af(tj, exp.mu4), lwd = 2, col = 5)
+
+labels <- c(
+  "Linha de base",
+  expression(paste(exp(mu), " = ", "0,2")),
+  expression(paste(exp(mu), " = ", "1/2")),
+  expression(paste(exp(mu), " = ", "2")),
+  expression(paste(exp(mu), " = ", "5"))
+)
+
+legend("topright", labels, lty = 1, col = 1:5, lwd = 2)
+```
+
+## Modelo de regressão log-logística
+
+```{r loglogistica-survreg}
+Reg.LogLogis <- survreg(
+  Surv(TIME, CENS) ~ factor(TREAT) + AGE + factor(RDISEASE) + factor(PERF),
+  data = quimioterapy,
+  dist = "loglogistic"
+)
+
+summary(Reg.LogLogis)
+```
+
+```{r}
+
+# Perfil para o qual você quer a curva
+novo <- data.frame(
+  TREAT = c(1, 2),
+  AGE = mean(quimioterapy$AGE),
+  RDISEASE = 2,
+  PERF = 1
+)
+
+tempos <- seq(1, max(quimioterapy$TIME), length.out = 300)
+
+eta <- predict(Reg.LogLogis, newdata = novo, type = "lp")
+sigma <- Reg.LogLogis$scale
+
+S_loglogis <- function(t, eta, sigma) {
+  1 / (1 + exp((log(t) - eta) / sigma))
+}
+
+plot(
+  tempos,
+  S_loglogis(tempos, eta[1], sigma),
+  type = "l",
+  lwd = 2,
+  col = 1,
+  ylim = c(0, 1),
+  xlab = "Tempo",
+  ylab = "S(t)",
+  main = "Função de sobrevivência - Log-logística"
+)
+
+lines(tempos, S_loglogis(tempos, eta[2], sigma), lwd = 2, col = 2)
+
+legend(
+  "topright",
+  legend = c("TREAT = 1", "TREAT = 2"),
+  col = c(1, 2),
+  lwd = 2
+)
+```

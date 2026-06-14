@@ -535,3 +535,13 @@ Isso é 13.4 indivíduos dentre o total de 60.
 
 n
 ```
+
+```{r}
+
+3.964*3.964/6.211
+```
+
+```{r}
+
+1 - pchisq(2.529914, df = 1)
+```

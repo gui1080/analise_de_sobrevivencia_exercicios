@@ -110,7 +110,7 @@ media <- sum(diff(t_ext) * S_ext[-length(S_ext)])
 media
 ```
 
-#### Letra C 
+#### Letra C
 
 Probabilidade de sobreviver...
 
