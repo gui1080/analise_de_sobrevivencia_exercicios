@@ -279,7 +279,7 @@ betas_weib
 
 ```{r}
 
-sqrt(diag(solve(res.weib$hessian)))
+#sqrt(diag(solve(res.weib$hessian)))
 ```
 
 ## Modelos de tempo de falha acelerado

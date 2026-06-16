@@ -1,0 +1,450 @@
+---
+title: "lista3_ex3"
+output: html_document
+---
+
+```{r setup, message=FALSE, warning=FALSE}
+
+library(survival)
+library(flexsurv)
+```
+
+# Câncer de Pulmão
+
+![](images/clipboard-1269735351.png)
+
+136 pacientes
+
+Nível de referência -\> *1- células escamosas para covariável cells*
+
+```{r}
+
+veteranos <- read.table("veteranos.txt", header = TRUE)
+
+head(veteranos)
+```
+
+# Letra A - Ajustar um Modelo Paramétrico
+
+```{r}
+
+reg.exp <- survreg(
+  Surv(tempo, evento) ~ factor(tto),
+  data = veteranos,
+  dist = "exponential"
+)
+
+summary(reg.exp)
+```
+
+```{r}
+
+RegExpComp <- survreg(
+  Surv(tempo, evento) ~ factor(tto) + cells + kpontuac + idade + terapAnt,
+  data = veteranos,
+  dist = "exponential"
+)
+
+summary(RegExpComp)
+```
+
+```{r}
+
+reg.weib <- survreg(
+  Surv(tempo, evento) ~ factor(tto) + cells + kpontuac + idade + terapAnt,
+  data = veteranos,
+  dist = "weibull"
+)
+
+summary(reg.weib)
+```
+
+```{r}
+
+reg.LogLogis <- survreg(
+  Surv(tempo, evento) ~ factor(tto) + cells + kpontuac + idade + terapAnt,
+  data = veteranos,
+  dist = "loglogistic"
+)
+
+summary(reg.LogLogis)
+
+eta_LogLogis <- predict(reg.LogLogis, newdata = veteranos, type = "lp")
+sigma <- reg.LogLogis$scale
+gamma <- 1 / sigma
+alpha <- exp(eta_LogLogis)
+
+t <- seq(1, max(veteranos$tempo), length.out = 450)
+
+S_loglogis <- sapply(alpha, function(a) {
+  1 / (1 + (t / a)^gamma)
+})
+```
+
+```{r}
+
+reg.LogNorm <- survreg(
+  Surv(tempo, evento) ~ factor(tto) + cells + kpontuac + idade + terapAnt,
+  data = veteranos,
+  dist = "lognorm"
+)
+
+summary(reg.LogNorm)
+```
+
+```{r}
+
+reg.Logis <- survreg(
+  Surv(tempo, evento) ~ factor(tto) + cells + kpontuac + idade + terapAnt,
+  data = veteranos,
+  dist = "logistic"
+)
+
+summary(reg.Logis)
+```
+
+```{r}
+
+reg.Gauss <- survreg(
+  Surv(tempo, evento) ~ factor(tto) + cells + kpontuac + idade + terapAnt,
+  data = veteranos,
+  dist = "gaussian"
+)
+
+summary(reg.Gauss)
+```
+
+```{r}
+
+form <- Surv(tempo, evento) ~ factor(tto) + cells + kpontuac + idade + terapAnt
+```
+
+```{r}
+
+reg.flex.gompertz <- flexsurvreg(
+  form,
+  data = veteranos,
+  dist = "gompertz"
+)
+
+reg.flex.genf <- flexsurvreg(
+  form,
+  data = veteranos,
+  dist = "genf"
+)
+
+reg.flex.gamma <- flexsurvreg(
+  form,
+  data = veteranos,
+  dist = "gamma"
+)
+```
+
+## Critérios da Informação
+
+```{r}
+
+AIC(reg.exp, reg.weib, reg.LogNorm, reg.LogLogis, reg.Logis, reg.Gauss, reg.flex.gompertz, reg.flex.genf, reg.flex.gamma)
+```
+
+```{r}
+
+BIC(reg.exp, reg.weib, reg.LogNorm, reg.LogLogis, reg.Logis, reg.Gauss, reg.flex.gompertz, reg.flex.genf, reg.flex.gamma)
+```
+
+**Escolhida vai ser a LogLogis!**
+
+### Visualização: Todas as Curvas de Sobrevivência contra Kaplan-Meier
+
+```{r}
+
+km <- survfit(Surv(tempo, evento) ~ 1, data = veteranos)
+
+t <- seq(0.001, max(veteranos$tempo), length.out = 300)
+
+curva_media_survreg <- function(modelo, dados, tempos) {
+  eta <- predict(modelo, newdata = dados, type = "lp")
+  sigma <- modelo$scale
+  dist <- modelo$dist
+
+  surv <- sapply(eta, function(mu) {
+    if (dist == "exponential") {
+      exp(-tempos / exp(mu))
+    } else if (dist == "weibull") {
+      exp(-(tempos / exp(mu))^(1 / sigma))
+    } else if (dist == "loglogistic") {
+      1 / (1 + (tempos / exp(mu))^(1 / sigma))
+    } else if (dist == "lognormal") {
+      1 - pnorm((log(tempos) - mu) / sigma)
+    } else if (dist == "logistic") {
+      1 - plogis((tempos - mu) / sigma)
+    } else if (dist == "gaussian") {
+      1 - pnorm((tempos - mu) / sigma)
+    }
+  })
+
+  rowMeans(surv, na.rm = TRUE)
+}
+
+curva_media_flexsurv <- function(modelo, dados, tempos) {
+  pred <- summary(
+    modelo,
+    newdata = dados,
+    type = "survival",
+    t = tempos,
+    ci = FALSE
+  )
+
+  if (is.data.frame(pred)) {
+    return(pred$est)
+  }
+
+  rowMeans(do.call(cbind, lapply(pred, function(x) x$est)), na.rm = TRUE)
+}
+
+modelos_survreg <- list(
+  "Exponencial (tto)" = reg.exp,
+  "Exponencial completa" = RegExpComp,
+  "Weibull" = reg.weib,
+  "Log-logistico" = reg.LogLogis,
+  "Log-normal" = reg.LogNorm,
+  "Logistico" = reg.Logis,
+  "Gaussiano" = reg.Gauss
+)
+
+curvas_modelos <- lapply(
+  modelos_survreg,
+  curva_media_survreg,
+  dados = veteranos,
+  tempos = t
+)
+
+curvas_modelos[["Gamma"]] <- curva_media_flexsurv(
+  reg.flex.gamma,
+  dados = veteranos,
+  tempos = t
+)
+
+cores <- c(
+  "black",
+  "#D55E00",
+  "#0072B2",
+  "#009E73",
+  "#CC79A7",
+  "#E69F00",
+  "#56B4E9",
+  "#999999",
+  "#882255"
+)
+
+ltys <- c(1, 2, 3, 4, 5, 6, 2, 3, 4)
+
+plot(
+  km,
+  conf.int = FALSE,
+  xlab = "Tempo",
+  ylab = "S(t)",
+  main = "Kaplan-Meier vs modelos parametricos",
+  lwd = 2,
+  col = cores[1]
+)
+
+for (i in seq_along(curvas_modelos)) {
+  lines(
+    t,
+    curvas_modelos[[i]],
+    col = cores[i + 1],
+    lwd = 2,
+    lty = ltys[i + 1]
+  )
+}
+
+legend(
+  "topright",
+  legend = c("Kaplan-Meier", names(curvas_modelos)),
+  col = cores,
+  lty = ltys,
+  lwd = 2,
+  cex = 0.7,
+  bty = "n"
+)
+
+```
+
+### Estimativas principais
+
+```{r}
+
+reg.Logis$coefficients
+```
+
+O parâmetro de forma é 1/escala.
+
+```{r}
+
+sigma_logis <- reg.Logis$scale
+sigma_logis
+```
+
+```{r}
+
+library(AdequacyModel)
+
+TTT(veteranos$tempo[veteranos$evento == 1])
+```
+
+Isso indica taxa de falha crescente. Será que a taxa de falha do nosso modelo paramétrico coincide com isso?
+
+```{r}
+
+# os momentos T que eu vou calcular
+t <- seq(1, max(veteranos$tempo), length.out = 450)
+
+# esse aqui é o preditor da regressão que eu fiz!
+# são os valores previstos!
+eta <- predict(reg.Logis, newdata = veteranos, type = "lp")
+
+# parametro de escala da distribuicao
+sigma <- reg.Logis$scale
+
+# h = f/S
+h_logis <- sapply(eta, function(mu) {
+  f <- dlogis(t, location = mu, scale = sigma)
+  S <- 1 - plogis(t, location = mu, scale = sigma)
+  f / S
+})
+
+h_media <- rowMeans(h_logis)
+
+plot(
+  t, h_media,
+  type = "l",
+  lwd = 2,
+  col = "#0072B2",
+  xlab = "Tempo",
+  ylab = "h(t)",
+  main = "Taxa de falha - modelo logístico"
+)
+```
+
+# Letra B - Interprete
+
+![](images/clipboard-2166704135.png)
+
+Interpretando:
+
+# Letra C - Modelo de Regressão de Cox
+
+```{r}
+
+reg.cox <- coxph(
+  Surv(tempo, evento) ~ factor(tto) + cells + kpontuac + idade + terapAnt,
+  data = veteranos
+)
+
+summary(reg.cox)
+```
+
+```{r}
+
+ajuste.cox <- survfit(reg.cox)
+
+plot(
+  ajuste.cox,
+  xlab = "Tempo",
+  ylab = "S(t)",
+  main = "Curva de sobrevivência ajustada - Cox",
+  lwd = 2
+)
+```
+
+```{r}
+
+S_media_loglogis <- rowMeans(S_loglogis)
+
+plot(
+  t, S_media_loglogis,
+  type = "l",
+  lwd = 2,
+  col = "#0072B2",
+  xlab = "Tempo",
+  ylab = "S(t)",
+  main = "Sobrevivência - modelo Log-logístico"
+)
+```
+
+```{r}
+
+plot(
+  t, S_media_loglogis,
+  type = "l",
+  lwd = 2,
+  col = "#0072B2",
+  xlab = "Tempo",
+  ylab = "S(t)",
+  ylim = c(0, 1),
+  main = "Log-logístico vs Cox"
+)
+
+lines(
+  ajuste.cox,
+  col = "#D55E00",
+  lwd = 2
+)
+
+legend(
+  "topright",
+  legend = c("Log-logístico", "Cox"),
+  col = c("#0072B2", "#D55E00"),
+  lwd = 2,
+  bty = "n"
+)
+```
+
+Ficou bem parecido!
+
+# Letra D - Coeficientes!
+
+```{r}
+
+coef(reg.cox)
+```
+
+```{r}
+
+reg.Logis$coefficients
+```
+
+```{r}
+
+# Coeficientes do Cox
+beta_cox <- coef(reg.cox)
+
+# Coeficientes do modelo paramétrico, sem intercepto
+beta_param <- coef(reg.LogLogis)[names(beta_cox)]
+
+# Parâmetro de escala do modelo paramétrico
+sigma_param <- reg.LogLogis$scale
+
+# Transformação pedida no enunciado
+beta_star <- -beta_param / sigma_param
+
+# Tabela comparativa
+tabela_coef <- data.frame(
+  Covariavel = names(beta_cox),
+  Cox = beta_cox,
+  Parametrico_transformado = beta_star
+)
+
+tabela_coef
+```
+
+# Letra E - Resíduos pro Modelo de Cox
+
+```{r}
+
+
+
+```
+
+# Letra F - Modelos de Riscos Proporcionais?
