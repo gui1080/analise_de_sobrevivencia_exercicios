@@ -441,10 +441,99 @@ tabela_coef
 
 # Letra E - Resíduos pro Modelo de Cox
 
+### Resíduos de Schoenfeld
+
+Verifica se hipótese de riscos proporcionais vale.
+
+p-valor \> 0.05 sem evidência contra riscos proporcionais
+
+p-valor \< 0.05 existe evidência contra riscos proporcionais
+
 ```{r}
 
-
-
+teste.ph <- cox.zph(reg.cox)
+teste.ph
 ```
 
+O *"global"* indica que o modelo como um todo viola a hipótese de riscos proporcionais.
+
+cells, kpontuac indicam violação de proporcionalidade
+
+idade, terapAnt não indicam violação de proporcionalidade
+
+```{r}
+plot(teste.ph)
+```
+
+### Resíduos de Martingale
+
+São úteis para ver se uma variável contínua entrou de forma adequada no modelo, por exemplo, se `idade` deveria ser linear ou transformada.
+
+```{r}
+
+res.mart <- residuals(reg.cox, type = "martingale")
+
+plot(veteranos$idade, res.mart,
+     xlab = "Idade",
+     ylab = "Resíduos martingale")
+abline(h = 0, lty = 2)
+
+plot(veteranos$terapAnt, res.mart,
+     xlab = "terapAnt",
+     ylab = "Resíduos martingale")
+abline(h = 0, lty = 2)
+
+plot(veteranos$cells, res.mart,
+     xlab = "cells",
+     ylab = "Resíduos martingale")
+abline(h = 0, lty = 2)
+
+plot(veteranos$kpontuac, res.mart,
+     xlab = "kpontuac",
+     ylab = "Resíduos martingale")
+abline(h = 0, lty = 2)
+```
+
+Não parece ter padrões claros.
+
 # Letra F - Modelos de Riscos Proporcionais?
+
+Da forma atual parece que não dá para satisfazer a suposição de riscos proporcionais.
+
+Individualmente, pelo teste de resíduos de Schoenfeld, variáveis "cell" e "kpontuac" não parecem satisfazer risco proporcional.
+
+Vou testar agora sem isso.
+
+```{r}
+
+reg.cox_alt <- coxph(
+  Surv(tempo, evento) ~ factor(tto) + idade + terapAnt,
+  data = veteranos
+)
+
+ajuste.cox_alt <- survfit(reg.cox_alt)
+
+plot(
+  ajuste.cox_alt,
+  xlab = "Tempo",
+  ylab = "S(t)",
+  main = "Curva de sobrevivência ajustada - Cox",
+  lwd = 2
+)
+```
+
+```{r}
+
+teste.ph_alt <- cox.zph(reg.cox_alt)
+teste.ph_alt
+```
+
+Agora sim esses p values são maiores que 0,05 e não tenho evidência contra riscos proporcionais. Porém, menos variáveis descritivas.
+
+```{r}
+
+AIC(reg.cox, reg.cox_alt)
+BIC(reg.cox, reg.cox_alt)
+```
+
+Vendo superficialemente, ocorre o que era de se esperar: piorou o modelo, mas ele não viola proporcionalidade.
