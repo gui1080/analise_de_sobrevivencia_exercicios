@@ -48,11 +48,30 @@ RegExpComp <- survreg(
 summary(RegExpComp)
 ```
 
+Esses modelos são, aproximadamente:
+
+log(Ti) = Beta_0 + Beta_1 \* x_1 + ... + σ ε\_i
+
+Então eu tenho que ver os coeficientes em exponencial!
+
+```{r}
+
+exp(coef(RegExpComp))
+```
+
 Ou seja
 
 S_TREAT1(t = 1) = S_TREAT2(t = 1.86)
 
-Mas o pvalue é alto então esse resultado n é sestatísticamente significativo.
+Mas o *pvalue* é alto então esse resultado n é estatísticamente significativo.
+
+-   valor **maior que 1**: aumenta o tempo até a falha quando comparado com fator base;
+
+-   valor **menor que 1**: reduz o tempo até a falha quando comparado com fator base;
+
+-   valor **igual a 1**: sem efeito no tempo.
+
+Nesse caso fator 1 é base e o fator 2 é a proposta alternativa.
 
 ### Função de log-verossimilhança
 
