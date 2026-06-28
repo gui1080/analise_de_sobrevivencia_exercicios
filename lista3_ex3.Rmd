@@ -3,10 +3,17 @@ title: "lista3_ex3"
 output: html_document
 ---
 
+```{r}
+
+install.packages("MASS")
+```
+
 ```{r setup, message=FALSE, warning=FALSE}
 
 library(survival)
 library(flexsurv)
+library(MASS)
+
 ```
 
 # Câncer de Pulmão
@@ -24,7 +31,52 @@ veteranos <- read.table("veteranos.txt", header = TRUE)
 head(veteranos)
 ```
 
-# Letra A - Ajustar um Modelo Paramétrico
+# Letra A Parte 1 - Escolher variáveis
+
+```{r}
+
+# MODELO COMPLETO 
+
+mod_full <- coxph(
+  Surv(tempo, evento) ~ factor(tto) + factor(cells) + kpontuac + idade + factor(terapAnt),
+  data = veteranos
+)
+```
+
+```{r}
+
+mod_step <- stepAIC(
+  mod_full,
+  direction = "both",
+  trace = TRUE
+)
+
+summary(mod_step)
+```
+
+No final step wise AIC para modelo de Cox deixa só **factor(cells) + kpontuac** como covariável que importa.
+
+```{r}
+
+n <- nrow(veteranos)
+
+mod_step_bic <- stepAIC(
+  mod_full,
+  direction = "both",
+  k = log(n),
+  trace = TRUE
+)
+
+summary(mod_step_bic)
+```
+
+Mesma coisa aqui: **factor(cells) + kpontuac.**
+
+Eu vou manter a idade pq em teoria faz sentido apesar de não ter significância. Tipo de tratamento também (por ser o objeto do estudo), queremos comparar.
+
+Na prática sendo muito simplista vou tirar *terapAnt e deixar o resto*.
+
+# Letra A Parte 2 - Ajustar um Modelo Paramétrico
 
 ```{r}
 
@@ -40,7 +92,7 @@ summary(reg.exp)
 ```{r}
 
 RegExpComp <- survreg(
-  Surv(tempo, evento) ~ factor(tto) + cells + kpontuac + idade + terapAnt,
+  Surv(tempo, evento) ~ factor(tto) + factor(cells) + kpontuac + idade,
   data = veteranos,
   dist = "exponential"
 )
@@ -51,7 +103,7 @@ summary(RegExpComp)
 ```{r}
 
 reg.weib <- survreg(
-  Surv(tempo, evento) ~ factor(tto) + cells + kpontuac + idade + terapAnt,
+  Surv(tempo, evento) ~ factor(tto) + factor(cells) + kpontuac + idade,
   data = veteranos,
   dist = "weibull"
 )
@@ -62,7 +114,7 @@ summary(reg.weib)
 ```{r}
 
 reg.LogLogis <- survreg(
-  Surv(tempo, evento) ~ factor(tto) + cells + kpontuac + idade + terapAnt,
+  Surv(tempo, evento) ~ factor(tto) + factor(cells) + kpontuac + idade,
   data = veteranos,
   dist = "loglogistic"
 )
@@ -84,7 +136,7 @@ S_loglogis <- sapply(alpha, function(a) {
 ```{r}
 
 reg.LogNorm <- survreg(
-  Surv(tempo, evento) ~ factor(tto) + cells + kpontuac + idade + terapAnt,
+  Surv(tempo, evento) ~ factor(tto) + factor(cells) + kpontuac + idade,
   data = veteranos,
   dist = "lognorm"
 )
@@ -95,7 +147,7 @@ summary(reg.LogNorm)
 ```{r}
 
 reg.Logis <- survreg(
-  Surv(tempo, evento) ~ factor(tto) + cells + kpontuac + idade + terapAnt,
+  Surv(tempo, evento) ~ factor(tto) + factor(cells) + kpontuac + idade,
   data = veteranos,
   dist = "logistic"
 )
@@ -106,7 +158,7 @@ summary(reg.Logis)
 ```{r}
 
 reg.Gauss <- survreg(
-  Surv(tempo, evento) ~ factor(tto) + cells + kpontuac + idade + terapAnt,
+  Surv(tempo, evento) ~ factor(tto) + factor(cells) + kpontuac + idade,
   data = veteranos,
   dist = "gaussian"
 )
@@ -116,7 +168,7 @@ summary(reg.Gauss)
 
 ```{r}
 
-form <- Surv(tempo, evento) ~ factor(tto) + cells + kpontuac + idade + terapAnt
+form <- Surv(tempo, evento) ~ factor(tto) + factor(cells) + kpontuac + idade
 ```
 
 ```{r}
@@ -275,14 +327,14 @@ legend(
 
 ```{r}
 
-reg.Logis$coefficients
+reg.LogLogis$coefficients
 ```
 
 O parâmetro de forma é 1/escala.
 
 ```{r}
 
-sigma_logis <- reg.Logis$scale
+sigma_logis <- reg.LogLogis$scale
 sigma_logis
 ```
 
@@ -329,16 +381,39 @@ plot(
 
 # Letra B - Interprete
 
-![](images/clipboard-2166704135.png)
+![](images/clipboard-4185780021.png)
 
 Interpretando:
+
+O modelo é log(Ti) = Beta0 + Beta1 x1 + ... + escala \* erro
+
+0.577 é a escala multiplicando o erro
+
+Os valores em "Values" são os betas do modelo.
+
+Nesse caso os valores, por ser uma distribuição loglogística, não estão na unidade original de tempo (em dias).
+
+Então por exemplo, exp(0.3539) = 1.036 para covariável kpontuac indica para cada aumento dela o tempo de sobrevivência aumenta em 3,6%. E como o pvalor é baixo, essa convariável é bem significativa.
+
+Para cells = 2 o beta é -0.65782 e exp(-0.65782) = 0.52 logo esses pacientes tem 1 - 0.52 tempo de sobrevivência quando comparado com cells = 1 (basal). Cells 2 e 3 tem um comportamento parecido, só cells=4 parece aumentar a sobrevida do paciente com esse tratamento, porém o pvalue sendo alto não tem significância estatística.
+
+Ocorre parecido com o tratamento = 2, sendo tratamento = 1 o tratamento basal. Analisando temos exp(−0.10577) = 0,9 e 1 - 0.9 = 0.1 ou seja 10% de redução na sobrevivência ao comparar com o tratamento basal (tem 90% da sobrevivência basal). Mas o pvalor é alto então o teste não tem significância.
+
+O teste global indica que o modelo ajustado com covariável é melhor que o basal, pvalue baixo nos indica que não dá para descartar que as covariáveis no geral não são importantes.
+
+```{r}
+
+# vendo direito os coeficientes
+
+exp(coef(reg.LogLogis))
+```
 
 # Letra C - Modelo de Regressão de Cox
 
 ```{r}
 
 reg.cox <- coxph(
-  Surv(tempo, evento) ~ factor(tto) + cells + kpontuac + idade + terapAnt,
+  Surv(tempo, evento) ~ factor(tto) + cells + kpontuac + idade,
   data = veteranos
 )
 
@@ -401,7 +476,33 @@ legend(
 )
 ```
 
-Ficou bem parecido!
+Ficou bem parecido! Cox cai mais rápido no final. Como fica comparando com Kaplan Meier?
+
+```{r}
+
+km_tto <- survfit(
+  Surv(tempo, evento) ~ factor(tto),
+  data = veteranos
+)
+
+summary(km_tto)
+```
+
+```{r}
+
+plot(
+  km_tto,
+  xlab = "Tempo",
+  ylab = "S(t)",
+  main = "Kaplan-Meier por tratamento"
+)
+
+legend(
+  "topright",
+  legend = c("Tratamento 1", "Tratamento 2"),
+  lty = 1:2
+)
+```
 
 # Letra D - Coeficientes!
 
@@ -459,7 +560,7 @@ O *"global"* indica que o modelo como um todo viola a hipótese de riscos propor
 
 cells, kpontuac indicam violação de proporcionalidade
 
-idade, terapAnt não indicam violação de proporcionalidade
+idade, não indica violação de proporcionalidade
 
 ```{r}
 plot(teste.ph)
